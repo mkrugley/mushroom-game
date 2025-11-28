@@ -2,13 +2,13 @@ import { GoogleGenAI } from "@google/genai";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-export const generateGoombaWisdom = async (score: number, causeOfDeath: string): Promise<string> => {
+export const generateMushroomWisdom = async (score: number, causeOfDeath: string): Promise<string> => {
   try {
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: `
-        You are a sentient Goomba from an 8-bit video game.
-        The player just played "Revenge of the Goomba" and scored ${score}.
+        You are a sentient Mushroom from an 8-bit video game.
+        The player just played "Revenge of the Mushroom" and scored ${score}.
         They died by: ${causeOfDeath}.
 
         Generate a short, funny, philosophical, or roasting quote (max 20 words) for the Game Over screen.

@@ -28,8 +28,8 @@ export const COLORS = {
   HILL_FILL: '#00A800',
   BUSH: '#00A800',
   CLOUD: '#FFFFFF',
-  GOOMBA: '#783800', 
-  GOOMBA_FACE: '#FFD8A8', 
+  MUSHROOM: '#783800', 
+  MUSHROOM_FACE: '#FFD8A8', 
   MARIO_RED: '#D82800',
   MARIO_BLUE: '#0058F8',
   MARIO_SKIN: '#FF9D3B',
@@ -57,7 +57,7 @@ export const COLORS = {
 };
 
 // 12x12 Pixel Art Grids (1 = Main Color, 2 = Secondary, 0 = Transparent)
-export const GOOMBA_SPRITE = [
+export const MUSHROOM_SPRITE = [
   [0,0,0,0,1,1,1,1,0,0,0,0],
   [0,0,0,1,1,1,1,1,1,0,0,0],
   [0,0,1,1,1,1,1,1,1,1,0,0],
@@ -192,7 +192,7 @@ export const EGG_SPRITE = [
     [0,0,0,0,0,0,0,0,0,0,0,0]
 ];
 
-export const MINI_GOOMBA_SPRITE = [
+export const MINI_MUSHROOM_SPRITE = [
     [0,0,0,0,0,0,0,0,0,0,0,0],
     [0,0,0,0,1,1,1,1,0,0,0,0],
     [0,0,0,1,1,1,1,1,1,0,0,0],

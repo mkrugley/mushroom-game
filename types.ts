@@ -22,6 +22,7 @@ export interface Entity {
   invincibleTimer?: number;
   wingTimer?: number; // How long wings last
   hasShield?: boolean;
+  shieldTimer?: number; // New: Timer for shield expiration
   jumpsAvailable?: number;
   hasWings?: boolean;
   // New: Spawn immunity state
@@ -33,7 +34,7 @@ export interface Entity {
   maxHp?: number;
   // Cutscene specific
   scale?: number;
-  itemType?: 'EGG' | 'MINI_GOOMBA';
+  itemType?: 'EGG' | 'MINI_MUSHROOM';
 }
 
 export interface Platform {

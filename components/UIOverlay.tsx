@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { GameState } from '../types';
-import { generateGoombaWisdom } from '../services/geminiService';
+import { generateMushroomWisdom } from '../services/geminiService';
 import { audio } from './RetroAudio';
 
 interface UIProps {
@@ -11,9 +11,10 @@ interface UIProps {
   onStart: () => void;
   onRestart: () => void;
   lives: number;
+  hasShield: boolean;
 }
 
-const UIOverlay: React.FC<UIProps> = ({ gameState, score, deathReason, onStart, onRestart, lives }) => {
+const UIOverlay: React.FC<UIProps> = ({ gameState, score, deathReason, onStart, onRestart, lives, hasShield }) => {
   const [aiMessage, setAiMessage] = useState<string>('');
   const [loadingAi, setLoadingAi] = useState(false);
 
@@ -21,7 +22,7 @@ const UIOverlay: React.FC<UIProps> = ({ gameState, score, deathReason, onStart, 
     if (gameState === GameState.GAME_OVER) {
       setLoadingAi(true);
       setAiMessage('');
-      generateGoombaWisdom(score, deathReason).then(msg => {
+      generateMushroomWisdom(score, deathReason).then(msg => {
         setAiMessage(msg);
         setLoadingAi(false);
       });
@@ -37,14 +38,30 @@ const UIOverlay: React.FC<UIProps> = ({ gameState, score, deathReason, onStart, 
     onRestart();
   };
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (gameState === GameState.GAME_OVER && e.code === 'Space') {
+        handleRestart();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [gameState, onRestart]);
+
   if (gameState === GameState.PLAYING || gameState === GameState.VICTORY) {
     return (
       <>
-        <div className="absolute top-4 left-4 font-bold text-white text-xl drop-shadow-md z-10 select-none pointer-events-none flex gap-6">
+        <div className="absolute top-4 left-4 font-bold text-white text-xl drop-shadow-md z-10 select-none pointer-events-none flex gap-6 items-center">
             <span>SCORE: {score}</span>
             <span className="text-red-500">
                 LIVES: {'❤️'.repeat(lives)}
             </span>
+            {hasShield && (
+                <div className="flex items-center gap-2 animate-pulse bg-cyan-900/50 p-2 rounded border border-cyan-400">
+                    <div className="w-6 h-6 rounded-full border-2 border-cyan-400 bg-cyan-500/20 shadow-[0_0_10px_cyan]"></div>
+                    <span className="text-cyan-400 text-sm">SHIELD</span>
+                </div>
+            )}
         </div>
         {gameState === GameState.VICTORY && (
             <div className="absolute top-20 w-full text-center pointer-events-none animate-pulse">
@@ -60,10 +77,10 @@ const UIOverlay: React.FC<UIProps> = ({ gameState, score, deathReason, onStart, 
     return (
       <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 text-white z-20 text-center p-4">
         <h1 className="text-4xl md:text-6xl text-yellow-400 mb-4 animate-pulse uppercase tracking-wider font-outline">
-          Revenge of the Goomba
+          Revenge of the Mushroom
         </h1>
         <p className="mb-8 text-gray-300 text-sm md:text-base max-w-md leading-relaxed">
-          Tired of being stomped? Now YOU are the Goomba. 
+          Tired of being stomped? Now YOU are the Mushroom. 
           <br/><br/>
           Jump on Mario's head. Collect Stars for invincibility and Wings for flight!
         </p>
@@ -99,7 +116,7 @@ const UIOverlay: React.FC<UIProps> = ({ gameState, score, deathReason, onStart, 
             ) : (
                 <div className="flex flex-col items-center">
                     <p className="text-yellow-400 italic mb-2">"{aiMessage}"</p>
-                    <span className="text-xs text-gray-500">- Ancestral Goomba Spirit</span>
+                    <span className="text-xs text-gray-500">- Ancestral Mushroom Spirit</span>
                 </div>
             )}
         </div>

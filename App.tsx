@@ -9,15 +9,18 @@ const App: React.FC = () => {
   const [score, setScore] = useState(0);
   const [lives, setLives] = useState(3);
   const [deathReason, setDeathReason] = useState('Unknown');
+  const [hasShield, setHasShield] = useState(false);
 
   const handleStart = () => {
     setScore(0);
     setLives(3);
+    setHasShield(false);
     setGameState(GameState.PLAYING);
   };
 
   const handleRestart = () => {
     setGameState(GameState.MENU);
+    setHasShield(false);
     setTimeout(() => {
         setScore(0);
         setLives(3);
@@ -35,6 +38,7 @@ const App: React.FC = () => {
         setDeathReason={setDeathReason}
         lives={lives}
         setLives={setLives}
+        setHasShield={setHasShield}
       />
       <UIOverlay 
         gameState={gameState} 
@@ -43,6 +47,7 @@ const App: React.FC = () => {
         onStart={handleStart}
         onRestart={handleRestart}
         lives={lives}
+        hasShield={hasShield}
       />
     </div>
   );

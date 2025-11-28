@@ -3,8 +3,8 @@ import React, { useRef, useEffect, useCallback } from 'react';
 import { GameState, Entity, Particle, Platform, PowerUp, Decoration } from '../types';
 import { 
     GRAVITY, FRICTION, ICE_FRICTION, JUMP_FORCE, MARIO_SPEED, COLORS, 
-    GOOMBA_SPRITE, MARIO_SPRITE, STAR_SPRITE, WINGS_SPRITE, PIANO_SPRITE, COIN_SPRITE, SHIELD_SPRITE,
-    WOLF_SPRITE, EGG_SPRITE, MINI_GOOMBA_SPRITE,
+    MUSHROOM_SPRITE, MARIO_SPRITE, STAR_SPRITE, WINGS_SPRITE, PIANO_SPRITE, COIN_SPRITE, SHIELD_SPRITE,
+    WOLF_SPRITE, EGG_SPRITE, MINI_MUSHROOM_SPRITE,
     DRAGON_SPRITE, GORILLA_SPRITE, EAGLE_SPRITE, STORK_SPRITE,
     PLAYER_SIZE, ENEMY_SIZE, BOSS_SIZE, PIANO_SIZE, POWERUP_SIZE
 } from '../constants';
@@ -18,10 +18,11 @@ interface GameCanvasProps {
   setDeathReason: (reason: string) => void;
   lives: number;
   setLives: (lives: React.SetStateAction<number>) => void;
+  setHasShield: (hasShield: boolean) => void;
 }
 
 const GameCanvas: React.FC<GameCanvasProps> = ({ 
-    gameState, setGameState, setScore, score, setDeathReason, lives, setLives 
+    gameState, setGameState, setScore, score, setDeathReason, lives, setLives, setHasShield
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const requestRef = useRef<number | null>(null);
@@ -44,7 +45,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   const playerRef = useRef<Entity>({ 
       x: 0, y: 0, width: PLAYER_SIZE, height: PLAYER_SIZE, 
       vx: 0, vy: 0, grounded: false, facingRight: true,
-      invincibleTimer: 0, wingTimer: 0, jumpsAvailable: 2, hasShield: false,
+      invincibleTimer: 0, wingTimer: 0, jumpsAvailable: 2, hasShield: false, shieldTimer: 0,
       hasMoved: false
   });
   const enemiesRef = useRef<Entity[]>([]);
@@ -91,7 +92,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       // Boss Spawn Logic (Every 2000px approx, but controlled)
       if (startX > 2000 && Math.floor(startX / 3000) > Math.floor((startX - (endX-startX))/3000) && !bossSpawnedRef.current) {
           if (bossCountRef.current < 3) {
-              spawnBoss(startX + 400, GROUND_Y - BOSS_SIZE, bossCountRef.current + 1);
+              spawnBoss(startX + 400, GROUND_Y - BOSS_SIZE * 1.2, bossCountRef.current + 1);
               return; 
           }
       }
@@ -220,7 +221,9 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       audio.startBossMusic();
       bossSpawnedRef.current = true;
       enemiesRef.current.push({
-          x, y, width: BOSS_SIZE, height: BOSS_SIZE,
+          x, y, 
+          width: BOSS_SIZE * 1.2, // Increase boss size/hitbox by 20%
+          height: BOSS_SIZE * 1.2,
           vx: -2, vy: 0, grounded: false, facingRight: false,
           type: 'BOSS', hp: 2 + variant, maxHp: 2 + variant, variant
       });
@@ -233,8 +236,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
        enemiesRef.current.push({
            x: -1000 + 400, // Dungeon coordinate space
            y: 500, // Ground level in dungeon is different
-           width: BOSS_SIZE,
-           height: BOSS_SIZE,
+           width: BOSS_SIZE * 1.2, // Increase hitbox size
+           height: BOSS_SIZE * 1.2,
            vx: -2,
            vy: 0,
            grounded: false,
@@ -246,6 +249,10 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   };
 
   const spawnEnemyAt = (x: number, y: number, type: Entity['type'] = 'ENEMY') => {
+    // Safe Zone Check: Ensure enemies don't spawn within ~300px of start (x=0 to 300)
+    // Player spawns at x=100.
+    if (!dungeonRef.current.active && x < 300) return;
+
     enemiesRef.current.push({
       x: x,
       y: y,
@@ -324,6 +331,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         setScore(0);
         livesRef.current = 3;
         setLives(3);
+        setHasShield(false);
         bossCountRef.current = 0;
     }
 
@@ -346,13 +354,14 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         y: GROUND_Y - startPipeH - PLAYER_SIZE - 5,
         width: PLAYER_SIZE, height: PLAYER_SIZE,
         vx: 0, vy: 0, grounded: true, facingRight: true,
-        invincibleTimer: 0, wingTimer: 0, jumpsAvailable: 2, hasShield: false,
+        invincibleTimer: 0, wingTimer: 0, jumpsAvailable: 2, hasShield: false, shieldTimer: 0,
         scale: 1,
         hasMoved: false
     };
 
     // Regenerate chunk starting AFTER the safe zone
-    generateChunk(300, width + 500, height);
+    // Increased offset to 500 to ensure no enemies spawn within immediate radius
+    generateChunk(500, width + 500, height);
     nextSpawnXRef.current = width + 500;
   };
 
@@ -479,7 +488,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
                       vy: -Math.random() * 15 - 5,
                       grounded: false,
                       type: 'CUTSCENE_ITEM',
-                      itemType: 'MINI_GOOMBA'
+                      itemType: 'MINI_MUSHROOM'
                   });
               }
           }
@@ -680,6 +689,17 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         if (player.wingTimer === 0) player.hasWings = false;
     }
 
+    // --- SHIELD TIMER LOGIC ---
+    if (player.hasShield && player.shieldTimer !== undefined && player.shieldTimer > 0) {
+        player.shieldTimer--;
+        if (player.shieldTimer <= 0) {
+            player.hasShield = false;
+            setHasShield(false);
+            createParticles(player.x + player.width/2, player.y + player.height/2, COLORS.SHIELD, 10);
+            audio.playCrash(); // Sound when shield breaks naturally
+        }
+    }
+
     // --- Power Ups ---
     for (let i = powerUpsRef.current.length - 1; i >= 0; i--) {
         const p = powerUpsRef.current[i];
@@ -701,6 +721,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
                 audio.playPowerUp();
             } else if (p.type === 'SHIELD') {
                 player.hasShield = true;
+                player.shieldTimer = 1200; // 20 seconds at 60FPS
+                setHasShield(true);
                 incrementScore(100);
                 audio.playPowerUp();
             }
@@ -729,18 +751,29 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
              for (let j = enemiesRef.current.length - 1; j >= 0; j--) {
                  if (i === j) continue;
                  const target = enemiesRef.current[j];
+                 if (!target) continue; // Safety check
+
                  if (checkCollision(enemy, target)) {
                      createParticles(target.x, target.y, COLORS.MARIO_RED, 10);
                      if (target.type === 'BOSS') {
                         audio.stopBossMusic();
                         bossSpawnedRef.current = false;
                         bossCountRef.current++;
-                        if (bossCountRef.current >= 3) triggerEnding(width, height);
+                        if (bossCountRef.current >= 3) {
+                            triggerEnding(width, height);
+                            break; // Stop loop if ending triggered
+                        }
                      }
-                     enemiesRef.current.splice(j, 1);
+                     // Safely splice
+                     if (enemiesRef.current.length > j) {
+                        enemiesRef.current.splice(j, 1);
+                     }
                      if (j < i) i--;
                  }
              }
+             
+             // If ending was triggered during inner loop, stop processing logic
+             if (isEndingRef.current) break;
         } else if (['EAGLE', 'STORK'].includes(enemy.type || '')) {
              enemy.x += enemy.vx * speedMultiplier;
              // Bobbing
@@ -797,6 +830,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
             if (enemy.type === 'PIANO') {
                 if (player.hasShield) {
                     player.hasShield = false;
+                    setHasShield(false);
                     player.invincibleTimer = 60;
                     createParticles(player.x + player.width/2, player.y + player.height/2, COLORS.SHIELD, 15);
                     audio.playCrash();
@@ -853,6 +887,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
                 // Not hit from top = Death (unless shield)
                 if (player.hasShield) {
                     player.hasShield = false;
+                    setHasShield(false);
                     player.invincibleTimer = 60; 
                     audio.playCrash(); 
                     createParticles(player.x + player.width/2, player.y + player.height/2, COLORS.SHIELD, 10);
@@ -881,6 +916,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   };
 
   const checkCollision = (r1: any, r2: any) => {
+    if (!r1 || !r2) return false;
     return (
         r1.x < r2.x + r2.width &&
         r1.x + r1.width > r2.x &&
@@ -934,10 +970,10 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
                 let color = COLORS.BLACK;
                 if (sprite === PIANO_SPRITE) {
                     color = val === 1 ? COLORS.PIANO_BLACK : COLORS.PIANO_WHITE;
-                } else if (sprite === GOOMBA_SPRITE) {
-                    color = val === 1 ? COLORS.GOOMBA : (val === 2 ? COLORS.GOOMBA_FACE : COLORS.BLACK);
-                } else if (sprite === MINI_GOOMBA_SPRITE) {
-                    color = val === 1 ? COLORS.GOOMBA : (val === 2 ? COLORS.GOOMBA_FACE : COLORS.BLACK);
+                } else if (sprite === MUSHROOM_SPRITE) {
+                    color = val === 1 ? COLORS.MUSHROOM : (val === 2 ? COLORS.MUSHROOM_FACE : COLORS.BLACK);
+                } else if (sprite === MINI_MUSHROOM_SPRITE) {
+                    color = val === 1 ? COLORS.MUSHROOM : (val === 2 ? COLORS.MUSHROOM_FACE : COLORS.BLACK);
                 } else if (sprite === STAR_SPRITE) {
                      color = val === 1 ? COLORS.STAR : COLORS.BLACK;
                 } else if (sprite === WINGS_SPRITE) {
@@ -957,7 +993,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
                 } else if (sprite === DRAGON_SPRITE) {
                     color = val === 1 ? COLORS.DRAGON_GREEN : (val === 2 ? COLORS.DRAGON_RED : COLORS.BLACK);
                 } else if (sprite === GORILLA_SPRITE) {
-                    color = val === 1 ? COLORS.GORILLA_BROWN : (val === 2 ? COLORS.GOOMBA_FACE : (val === 3 ? COLORS.GORILLA_BLUE : COLORS.BLACK));
+                    color = val === 1 ? COLORS.GORILLA_BROWN : (val === 2 ? COLORS.MUSHROOM_FACE : (val === 3 ? COLORS.GORILLA_BLUE : COLORS.BLACK));
                 } else if (sprite === EAGLE_SPRITE) {
                     color = val === 1 ? COLORS.EAGLE_BROWN : (val === 2 ? COLORS.WHITE : COLORS.BLACK);
                 } else if (sprite === STORK_SPRITE) {
@@ -1105,8 +1141,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
              drawSprite(ctx, WOLF_SPRITE, screenX, e.y, e.width, e.height, e.facingRight || false);
         } else if (e.itemType === 'EGG') {
              drawSprite(ctx, EGG_SPRITE, screenX, e.y, e.width, e.height, true);
-        } else if (e.itemType === 'MINI_GOOMBA') {
-             drawSprite(ctx, MINI_GOOMBA_SPRITE, screenX, e.y, e.width, e.height, true);
+        } else if (e.itemType === 'MINI_MUSHROOM') {
+             drawSprite(ctx, MINI_MUSHROOM_SPRITE, screenX, e.y, e.width, e.height, true);
         }
     });
 
@@ -1130,7 +1166,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
             drawSprite(ctx, WINGS_SPRITE, wingX, drawY - 10 + wingYOffset, 30, 30, p.facingRight || false, opacity);
         }
         
-        drawSprite(ctx, GOOMBA_SPRITE, drawX, drawY, drawW, drawH, p.facingRight || false, opacity);
+        drawSprite(ctx, MUSHROOM_SPRITE, drawX, drawY, drawW, drawH, p.facingRight || false, opacity);
         
         if (p.hasShield) {
             ctx.save();
@@ -1138,7 +1174,14 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
             ctx.lineWidth = 3;
             ctx.shadowColor = COLORS.SHIELD;
             ctx.shadowBlur = 10;
-            ctx.globalAlpha = 0.6 + Math.sin(frameCountRef.current * 0.1) * 0.2;
+            
+            // Flicker if low on time
+            let shieldOpacity = 0.6 + Math.sin(frameCountRef.current * 0.1) * 0.2;
+            if (p.shieldTimer && p.shieldTimer < 180) { // Last 3 seconds (60fps * 3)
+                shieldOpacity = (Math.floor(frameCountRef.current / 10) % 2 === 0) ? 0.2 : 0.8;
+            }
+            
+            ctx.globalAlpha = shieldOpacity;
             
             ctx.beginPath();
             ctx.arc(drawX + drawW/2, drawY + drawH/2, drawW/1.2, 0, Math.PI * 2);
